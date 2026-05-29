@@ -26,6 +26,7 @@ const MODELS_URL: &str = "https://api.anthropic.com/v1/models?limit=1000";
 const FAST_MODE_BETA: &str = "fast-mode-2026-02-01";
 
 const ENV_VAR: &str = "ANTHROPIC_API_KEY";
+const OAUTH_TOKEN_ENV_VAR: &str = "CLAUDE_CODE_OAUTH_TOKEN";
 
 pub(crate) use shared::models;
 
@@ -57,9 +58,15 @@ pub struct Anthropic {
 
 impl Anthropic {
     pub fn new(timeouts: super::Timeouts) -> Result<Self, AgentError> {
-        let pool = KeyPool::from_env(ENV_VAR)?;
+        let (pool, via_oauth) = KeyPool::from_env(ENV_VAR)
+            .map(|p| (p, false))
+            .or_else(|_| KeyPool::from_env(OAUTH_TOKEN_ENV_VAR).map(|p| (p, true)))?;
         let resolved = resolve_auth_from_key(pool.current());
-        debug!(keys = pool.len(), "using API key authentication");
+        if via_oauth {
+            debug!(keys = pool.len(), "using Claude Code OAuth token authentication");
+        } else {
+            debug!(keys = pool.len(), "using API key authentication");
+        }
         Ok(Self {
             client: super::http_client(timeouts),
             auth: Arc::new(Mutex::new(resolved)),

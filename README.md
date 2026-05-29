@@ -35,7 +35,7 @@ An AI coding agent optimized for minimal use of context tokens, while providing 
 
 ## Supported providers
 
-* Anthropic - `ANTHROPIC_API_KEY` only (using OAuth is against TOS).
+* Anthropic - `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` (generated via `claude setup-token`, requires Pro/Max/Teams subscription).
 * OpenAI - `OPENAI_API_KEY` and OAuth via `maki auth login openai`.
 * Copilot - `GH_COPILOT_TOKEN` or an existing GitHub Copilot sign-in at `~/.config/github-copilot/`.
 * Ollama - `OLLAMA_HOST` for local (e.g. `http://localhost:11434`), or `OLLAMA_API_KEY` for cloud.
