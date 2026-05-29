@@ -154,7 +154,10 @@ pub fn generate_title<M: TitleSource>(messages: &[M]) -> String {
         return text.to_string();
     }
 
-    let boundary = text.floor_char_boundary(MAX_TITLE_LEN);
+    let boundary = (0..=MAX_TITLE_LEN)
+        .rev()
+        .find(|&i| text.is_char_boundary(i))
+        .unwrap_or(0);
     let truncated = &text[..boundary];
     match truncated.rfind(' ') {
         Some(pos) if pos > MAX_TITLE_LEN / 2 => format!("{}…", &truncated[..pos]),
