@@ -41,10 +41,19 @@ fn apply_fast_mode(body: &mut Value, model: &Model, opts: RequestOptions) -> boo
     on
 }
 
+fn is_oauth_token(key: &str) -> bool {
+    key.starts_with("sk-ant-oat")
+}
+
 fn resolve_auth_from_key(key: &str) -> super::ResolvedAuth {
+    let headers = if is_oauth_token(key) {
+        vec![("authorization".into(), format!("Bearer {key}"))]
+    } else {
+        vec![("x-api-key".into(), key.to_string())]
+    };
     super::ResolvedAuth {
-        base_url: Some("https://api.anthropic.com/v1/messages".into()),
-        headers: vec![("x-api-key".into(), key.to_string())],
+        base_url: Some(MESSAGES_URL.into()),
+        headers,
     }
 }
 
@@ -58,15 +67,10 @@ pub struct Anthropic {
 
 impl Anthropic {
     pub fn new(timeouts: super::Timeouts) -> Result<Self, AgentError> {
-        let (pool, via_oauth) = KeyPool::from_env(ENV_VAR)
-            .map(|p| (p, false))
-            .or_else(|_| KeyPool::from_env(OAUTH_TOKEN_ENV_VAR).map(|p| (p, true)))?;
+        let pool = KeyPool::from_env(ENV_VAR)
+            .or_else(|_| KeyPool::from_env(OAUTH_TOKEN_ENV_VAR))?;
         let resolved = resolve_auth_from_key(pool.current());
-        if via_oauth {
-            debug!(keys = pool.len(), "using Claude Code OAuth token authentication");
-        } else {
-            debug!(keys = pool.len(), "using API key authentication");
-        }
+        debug!(keys = pool.len(), oauth = is_oauth_token(pool.current()), "authentication configured");
         Ok(Self {
             client: super::http_client(timeouts),
             auth: Arc::new(Mutex::new(resolved)),
@@ -217,7 +221,8 @@ impl Provider for Anthropic {
 
     fn reload_auth(&self) -> BoxFuture<'_, Result<(), AgentError>> {
         Box::pin(async {
-            let pool = KeyPool::from_env(ENV_VAR)?;
+            let pool = KeyPool::from_env(ENV_VAR)
+                .or_else(|_| KeyPool::from_env(OAUTH_TOKEN_ENV_VAR))?;
             *self.auth.lock().unwrap() = resolve_auth_from_key(pool.current());
             debug!("reloaded Anthropic auth from env");
             Ok(())
